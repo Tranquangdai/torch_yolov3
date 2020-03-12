@@ -1,26 +1,28 @@
+import pdb
 import torch
 import torch.nn.functional as F
 import torchvision
 
 
 class PostProcess(object):
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    @staticmethod
-    def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
+    def yolo_head(self, feats, anchors, num_classes, input_shape, calc_loss=False):
         num_anchors = len(anchors)
-        anchors_tensor = torch.Tensor(anchors).view(1, 1, 1, num_anchors, 2)
+        anchors_tensor = torch.Tensor(anchors).view(1, 1, 1, num_anchors, 2).to(self.device)
         grid_shape = feats.shape[2:4]
 
         grid_x, grid_y = torch.meshgrid([torch.arange(0, grid_shape[0]),
                                          torch.arange(0, grid_shape[1])])
         grid = torch.cat([grid_x.view(1, 1, *grid_x.shape),
-                          grid_y.view(1, 1, *grid_y.shape)], dim=1).permute(3, 2, 0, 1).float()
+                          grid_y.view(1, 1, *grid_y.shape)], dim=1)\
+                    .permute(3, 2, 0, 1).float().to(self.device)
 
         feats = feats.view(-1, num_anchors, num_classes + 5,
                            *grid_shape).permute(0, 3, 4, 1, 2)
-
         box_xy = (torch.sigmoid(feats[..., :2]) +
-                  grid) / torch.Tensor(list(grid_shape[::-1]))
+                  grid) / torch.Tensor(list(grid_shape[::-1])).to(self.device)
         box_wh = torch.exp(feats[..., 2:4]) * \
             anchors_tensor / input_shape.flip(0)
         box_confidence = torch.sigmoid(feats[..., 4:5])
@@ -30,8 +32,7 @@ class PostProcess(object):
             return grid, feats, box_xy, box_wh
         return box_xy, box_wh, box_confidence, box_class_probs
 
-    @staticmethod
-    def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
+    def yolo_correct_boxes(self, box_xy, box_wh, input_shape, image_shape):
         box_yx = box_xy.flip(-1)
         box_hw = box_wh.flip(-1)
 
@@ -85,7 +86,7 @@ class PostProcess(object):
         num_layers = len(yolo_outputs)
         anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] \
             if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]
-        input_shape = torch.Tensor(list(yolo_outputs[0].shape[2:4])) * 32
+        input_shape = torch.Tensor(list(yolo_outputs[0].shape[2:4])).to(self.device) * 32
 
         boxes = []
         box_scores = []

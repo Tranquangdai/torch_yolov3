@@ -39,9 +39,9 @@ class Yolo(object):
                 self.num_classes,
                 torch.Tensor(image_shape).to(self.device))
 
-        out_boxes = out_boxes.numpy()
-        out_scores = out_scores.numpy()
-        out_classes = out_classes.numpy()
+        out_boxes = out_boxes.cpu().numpy()
+        out_scores = out_scores.cpu().numpy()
+        out_classes = out_classes.cpu().numpy()
 
         if not draw_bbox:
             return out_boxes, out_scores, out_classes
