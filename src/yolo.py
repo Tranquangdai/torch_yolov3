@@ -20,6 +20,8 @@ class Yolo(object):
         "gpu_num": 1,
     }
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     def __init__(self, **kwargs):
         self.__dict__.update(self._defaults)  # set up default values
         self.__dict__.update(kwargs)  # and update with user overrides
@@ -29,13 +31,13 @@ class Yolo(object):
 
     def detect_image(self, image, draw_bbox=True, draw_label=False):
         image_shape, img = self._load_img(image)
-        img = torch.Tensor(img).permute(0, 3, 1, 2)
+        img = torch.Tensor(img).permute(0, 3, 1, 2).to(self.device)
         with torch.no_grad():
             out_boxes, out_scores, out_classes = self.post_processor.yolo_eval(
                 self.yolo_body(img),
                 self.anchors,
                 self.num_classes,
-                image_shape)
+                torch.Tensor(image_shape).to(self.device))
 
         out_boxes = out_boxes.numpy()
         out_scores = out_scores.numpy()
@@ -66,6 +68,7 @@ class Yolo(object):
         self.yolo_body = YoloBody(num_anchors // 3, self.num_classes)
         state_dict = torch.load(self.model_path)
         self.yolo_body.load_state_dict(state_dict)
+        self.yolo_body.to(self.device)
         self.yolo_body.eval()
         self.post_processor = PostProcess()
         self.colors = self._get_colors()
@@ -95,7 +98,7 @@ class Yolo(object):
         image_data = np.array(boxed_image, dtype='float32')
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)
-        return torch.Tensor(image_shape), image_data
+        return image_shape, image_data
 
     def draw_bbox(self, image,
                   out_boxes, out_scores, out_classes,
