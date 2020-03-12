@@ -11,9 +11,9 @@
 ## Requirements
 - pytorch
 - pytest
-- torchvision
+- torchvision>=0.4.2
 - numpy
-- PIL
+- Pillow>=6.2.1
 - matplotlib
 
 ## Test
